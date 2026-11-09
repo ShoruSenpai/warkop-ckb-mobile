@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 
+import '../../../services/layanan_waktu.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -13,16 +15,16 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isClockingIn = false;
   late Timer _timer;
-  DateTime _now = DateTime.now();
+  DateTime _now = LayananWaktu.sekarang();
 
   @override
   void initState() {
     super.initState();
-    _now = DateTime.now();
+    _now = LayananWaktu.sekarang();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          _now = DateTime.now();
+          _now = LayananWaktu.sekarang();
         });
       }
     });
@@ -41,9 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m WIB';
+    return LayananWaktu.formatJam(dt);
   }
 
   final Color primary = const Color(0xFF2563EB);
@@ -166,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  'Alisa Yasmin',
+                                  'Azai Lunia',
                                   style: GoogleFonts.poppins(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
@@ -393,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            'Alisa Yasmin • Barista Staff',
+                                            'Azai Lunia • Barista Staff',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w500,
@@ -1176,7 +1176,7 @@ Widget _buildHugeCard({
                     iconColor: const Color(0xFFD97706),
                     iconBg: const Color(0xFFFEF3C7),
                     title: 'Shift Pagi Segera Dimulai',
-                    subtitle: 'Jadwal Barista kamu mulai pukul 08:00 WIB. Segera lakukan presensi masuk.',
+                    subtitle: 'Jadwal Barista kamu mulai pukul 08:00 ${LayananWaktu.zonaWaktu(_now)}. Segera lakukan presensi masuk.',
                     time: '15 menit yang lalu',
                     isUnread: true,
                   ),

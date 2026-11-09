@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../services/layanan_waktu.dart';
+
 class ShiftScreen extends StatefulWidget {
   const ShiftScreen({super.key});
 
@@ -178,7 +180,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Halo, Alisa!',
+                                  'Halo, Azai!',
                                   style: GoogleFonts.poppins(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
@@ -405,7 +407,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                                             ),
                                           ),
                                           Text(
-                                            'Jum, 10 Okt • 15.00 - 23.00 WIB',
+                                            'Jum, 10 Okt • 15.00 - 23.00 ${LayananWaktu.zonaWaktu(_now)}',
                                             style: GoogleFonts.plusJakartaSans(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -434,7 +436,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                                             ),
                                           ),
                                           Text(
-                                            'Shift Pagi (08.00 - 16.00 WIB)',
+                                            'Shift Pagi (08.00 - 16.00 ${LayananWaktu.zonaWaktu(_now)})',
                                             style: GoogleFonts.plusJakartaSans(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -604,7 +606,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                           if (_activeFilter == 'all' || _activeFilter == 'completed')
                             _buildHistoryCard(
                               date: 'Kamis, 24 Okt 2024',
-                              time: '08.00 - 16.00 WIB',
+                              time: '08.00 - 16.00 ${LayananWaktu.zonaWaktu(_now)}',
                               shiftType: 'Shift Pagi',
                               status: 'Disetujui',
                               statusBg: successBg,
@@ -619,7 +621,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                           if (_activeFilter == 'all' || _activeFilter == 'pending')
                             _buildHistoryCard(
                               date: 'Senin, 28 Okt 2024',
-                              time: '12.00 - 20.00 WIB',
+                              time: '12.00 - 20.00 ${LayananWaktu.zonaWaktu(_now)}',
                               shiftType: 'Shift Siang',
                               status: 'Menunggu SPV',
                               statusBg: warningBg,
@@ -634,7 +636,7 @@ class _ShiftScreenState extends State<ShiftScreen> {
                           if (_activeFilter == 'all' || _activeFilter == 'completed')
                             _buildHistoryCard(
                               date: 'Minggu, 13 Okt 2024',
-                              time: '07.00 - 15.00 WIB',
+                              time: '07.00 - 15.00 ${LayananWaktu.zonaWaktu(_now)}',
                               shiftType: 'Shift Pagi',
                               status: 'Ditolak',
                               statusBg: dangerBg,

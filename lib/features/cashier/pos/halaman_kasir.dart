@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/warna/warna_aplikasi.dart';
+import '../../../data/katalog_kasir.dart';
+import '../../../models/item_keranjang.dart';
+import '../../../models/produk.dart';
+import '../../../services/layanan_keranjang.dart';
+
 class KasirScreen extends StatefulWidget {
   const KasirScreen({super.key});
 
@@ -16,100 +22,25 @@ class _KasirScreenState extends State<KasirScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final Color primary = const Color(0xFF2563EB);
-  final Color primaryDark = const Color(0xFF1D4ED8);
-  final Color primaryLight = const Color(0xFFDBEAFE);
-  final Color secondary = const Color(0xFF64748B);
-  final Color surface = const Color(0xFFF4F6FB);
-  final Color surfaceWhite = const Color(0xFFFFFFFF);
-  final Color textPrimary = const Color(0xFF0F172A);
-  final Color textSecondary = const Color(0xFF475569);
-  final Color borderLight = const Color(0xFFE2E8F0);
-  final Color successBg = const Color(0xFFDCFCE7);
-  final Color successText = const Color(0xFF15803D);
+  final Color primary = AppColors.primary;
+  final Color primaryDark = AppColors.primaryDark;
+  final Color primaryLight = AppColors.primaryLight;
+  final Color secondary = AppColors.secondary;
+  final Color surface = AppColors.surface;
+  final Color surfaceWhite = AppColors.surfaceWhite;
+  final Color textPrimary = AppColors.textPrimary;
+  final Color textSecondary = AppColors.textSecondary;
+  final Color borderLight = AppColors.border;
+  final Color successBg = AppColors.successBackground;
+  final Color successText = AppColors.successText;
 
-  final List<String> _categories = [
-    'Semua',
-    'Kopi Susu',
-    'Manual Brew',
-    'Non-Kopi',
-    'Camilan Tradisional',
-    'Makanan Berat'
-  ];
+  final List<String> _categories = CashierCatalog.categories;
+  final List<Product> _products = CashierCatalog.products;
+  final CartService _cartService = CartService(
+    initialItems: CashierCatalog.initialCart,
+  );
 
-  final List<Map<String, dynamic>> _products = [
-    {
-      'cat': 'Kopi Susu',
-      'name': 'Kopi Susu Cak Kebo',
-      'desc': 'Gula aren organik, double espresso',
-      'price': 18000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuARybcadp9pYMQHJULLtF0871NifTwt1KSueZDE_gbnnaIFzKWeun-ksPIfMnBJiU7JfBvI2PVHHLzbxrCBwkliATgfRgqyPolB0sAemmbjbDaST9aSLDwEhGtxi0Y7Cke9U_pwhWZx9JvdQVdnN_GapDmRB5h_IrQD4LSmg6dmO6qnnJeoP5tqSjQh1Uf1o11LULqrEUOQshES8RR1bdPn3I4xG5f2QXEtcDRqv9ZUz-vTSn6PxIgfjQ',
-      'tag': 'Favorit'
-    },
-    {
-      'cat': 'Manual Brew',
-      'name': 'Espresso Single',
-      'desc': 'Arabica Gayo wash 30ml',
-      'price': 15000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDaaCnJp_jl4wJMguixT2C0oEHKSxcYq0r-Huao-aYpCmZmyaSx1SFz1d9QrN2m2HlryQ3Ys0R2eVFH1X-RnwAe_kkHbpAvZ_7eCVWZhrNXsdP9D198BpZOKeFtSmDThI2lJUUeK8Hkx6VxVBRGLJ1RvB2zSPO3oWw2KtxO71BkJGU0s7jKFQlxoJOPZQQPD2XyTZRvQPEy_Fg2B6pZH38UBT-k5pq2mnvPn5Mz8JWRTqjTcFTZ5-3Bvg',
-    },
-    {
-      'cat': 'Manual Brew',
-      'name': 'Americano Dingin',
-      'desc': 'Clean body, fruity notes',
-      'price': 16000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuACU9VPBe25t4rbG5HD7MD4VIc-EHESgrVYRomYzRxUH4G8zwtKI2sQy0kobtwQ6xYhycuf_J0iDZE2OvY-nUyijfE7W201nJEAXMKTlcCeKYPZ0WyNxXJPPxPoOtvrH6G4jR8lf6yoofCFODIYwrUTMtT7bMVUG6IRtBplAX5tnVjc8RRCx0HxJ4E72dnyT50ImQspGp_0PQt0MxPFvZq9-LRCjw8Crpt47CwHw_q55141Npux5fC49A',
-    },
-    {
-      'cat': 'Non-Kopi',
-      'name': 'Matcha Latte',
-      'desc': 'Uji matcha murni dengan oatmilk',
-      'price': 26000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCnpi1EXgLfpIPOEQdbBOMduUZJfOn7_NWpMByE83_vlrNg3m-Gk8QLAvwMDzmPxaWUpUPOVy9Rhix5f_FmJUTS_O594-iuiCQOg8qSmU3lfww7rootD3cHNEm65SpSBCoznf3N8zJOU7INbtMuHMUBG49xAlFE9TN_dEzZGjVRM3YAx2vEIYCFpbzUUfFz1kS9fhaaBLkRzfQEFPJaqwI3Vtsgnm-3n26NOVBP-gGwi2e1r03u-AKXAw',
-      'tag': 'Artisan'
-    },
-    {
-      'cat': 'Camilan Tradisional',
-      'name': 'Pisang Goreng Wijen',
-      'desc': 'Pisang kepok madu, renyah wangi',
-      'price': 16000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD8Cux6ikayaCbNXUstL6MLPbuBqkSoVxxLO8vtzWkBj-UotkPdW0ctLjPjN3lC8LzSqZnj9yaMJ5Ivz6VxUJWB3-AquCCrfRwdW3yFz5W7BKlD9dkvVvWNE705IIxQd2pnsA57CVM2-WUq4IY14Hd8PsUbvj4S7K1PLHeiM7AUNX0n4jgMACj0czPW8Oc6irEW08UwH80yxLiPE8yo6W8SO2KiXoZLSAZXfciP3jMOVpu6BKlQ_UBDrw',
-    },
-    {
-      'cat': 'Makanan Berat',
-      'name': 'Nasi Goreng Kampung',
-      'desc': 'Telur mata sapi, acar segar',
-      'price': 28000,
-      'img':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuC1h55M00RisBoFXM7SiZuNbZU-TFfVNorP_7c_66_IJiqCYVY9kMfs_Jiq5NHChRW26tZbrYOrsD29cQEjCiFWtScsJsUOLrV6Wbis-vjfEqjGsvNo1i446x0VzTZu8Du4ccPMoQ5MGogmnRGdNb27wmM1FrsX2f79L44Vl-ZoHtIF3nlCDmlKFcpoVvPRQCgpvrFuM_J8hpsth2_aCdRYxqdwh4TnJUCjlTJIyp0NytFtmv_W5tGltQ',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _cart = [
-    {
-      'name': 'Kopi Susu Cak Kebo',
-      'variant': 'Normal Ice, Less Sugar',
-      'price': 18000,
-      'qty': 1
-    },
-    {
-      'name': 'Pisang Goreng Wijen',
-      'variant': 'Topping Cokelat Keju',
-      'price': 16000,
-      'qty': 2
-    },
-    {
-      'name': 'Matcha Latte',
-      'variant': 'Substitusi Oatmilk (+Rp 6.000)',
-      'price': 26000,
-      'qty': 1
-    },
-  ];
+  List<CartItem> get _cart => _cartService.items;
 
   String _formatRp(int number) {
     final formatCurrency =
@@ -117,43 +48,19 @@ class _KasirScreenState extends State<KasirScreen> {
     return formatCurrency.format(number);
   }
 
-  int _getItemQty(String name) {
-    for (var item in _cart) {
-      if (item['name'] == name) {
-        return item['qty'] as int;
-      }
-    }
-    return 0;
+  int _getItemQty(String productId) =>
+      _cartService.quantityFor(productId);
+
+  void _addItem(Product product) {
+    setState(() => _cartService.addProduct(product));
   }
 
-  void _addItem(Map<String, dynamic> product) {
-    setState(() {
-      int index = _cart.indexWhere((item) => item['name'] == product['name']);
-      if (index >= 0) {
-        _cart[index]['qty'] = (_cart[index]['qty'] as int) + 1;
-      } else {
-        _cart.add({
-          'name': product['name'],
-          'variant': product['desc'],
-          'price': product['price'],
-          'qty': 1,
-        });
-      }
-    });
+  void _increaseItem(CartItem item) {
+    setState(() => _cartService.increaseItem(item));
   }
 
-  void _removeItem(String name) {
-    setState(() {
-      int index = _cart.indexWhere((item) => item['name'] == name);
-      if (index >= 0) {
-        int currentQty = _cart[index]['qty'] as int;
-        if (currentQty > 1) {
-          _cart[index]['qty'] = currentQty - 1;
-        } else {
-          _cart.removeAt(index);
-        }
-      }
-    });
+  void _removeItem(String productId) {
+    setState(() => _cartService.decreaseItem(productId));
   }
 
   void _showCartSheet() {
@@ -164,12 +71,10 @@ class _KasirScreenState extends State<KasirScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext sheetContext, StateSetter setModalState) {
-            int subtotal = _cart.fold(
-                0, (sum, item) => sum + (item['price'] as int) * (item['qty'] as int));
-            int tax = (subtotal * 0.10).round();
-            int total = subtotal + tax;
-            int totalItems =
-                _cart.fold(0, (sum, item) => sum + (item['qty'] as int));
+            final subtotal = _cartService.subtotal;
+            final tax = _cartService.tax;
+            final total = _cartService.total;
+            final totalItems = _cartService.itemCount;
 
             return Container(
               padding: EdgeInsets.only(
@@ -316,7 +221,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item['name'],
+                                          item.name,
                                           style: GoogleFonts.poppins(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
@@ -325,7 +230,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          _formatRp(item['price']),
+                                          _formatRp(item.price),
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -346,7 +251,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                       children: [
                                         InkWell(
                                           onTap: () {
-                                            _removeItem(item['name']);
+                                            _removeItem(item.productId);
                                             setModalState(() {});
                                           },
                                           borderRadius:
@@ -361,7 +266,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8),
                                           child: Text(
-                                            item['qty'].toString(),
+                                            item.quantity.toString(),
                                             style: GoogleFonts.poppins(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
@@ -371,7 +276,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                         ),
                                         InkWell(
                                           onTap: () {
-                                            _addItem(item);
+                                            _increaseItem(item);
                                             setModalState(() {});
                                           },
                                           borderRadius:
@@ -554,18 +459,14 @@ class _KasirScreenState extends State<KasirScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int subtotal = _cart.fold(
-        0, (sum, item) => sum + (item['price'] as int) * (item['qty'] as int));
-    int tax = (subtotal * 0.10).round();
-    int total = subtotal + tax;
-    int totalCartItems =
-        _cart.fold(0, (sum, item) => sum + (item['qty'] as int));
+    final total = _cartService.total;
+    final totalCartItems = _cartService.itemCount;
 
-    final filteredProducts = _products.where((p) {
-      final matchCat =
-          _activeCategory == 'Semua' || p['cat'] == _activeCategory;
+    final filteredProducts = _products.where((product) {
+      final matchCat = _activeCategory == 'Semua' ||
+        product.category == _activeCategory;
       final matchQuery = _searchQuery.isEmpty ||
-          p['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+        product.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchCat && matchQuery;
     }).toList();
 
@@ -936,8 +837,7 @@ class _KasirScreenState extends State<KasirScreen> {
                           itemCount: filteredProducts.length,
                           itemBuilder: (context, index) {
                             final item = filteredProducts[index];
-                            final int currentQty =
-                                _getItemQty(item['name'] as String);
+                            final int currentQty = _getItemQty(item.id);
 
                             return Container(
                               decoration: BoxDecoration(
@@ -964,7 +864,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                         child: AspectRatio(
                                           aspectRatio: 1.35,
                                           child: Image.network(
-                                            item['img'],
+                                            item.imageUrl,
                                             fit: BoxFit.cover,
                                             errorBuilder:
                                                 (context, error, stackTrace) =>
@@ -976,7 +876,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                           ),
                                         ),
                                       ),
-                                      if (item['tag'] != null)
+                                      if (item.tag != null)
                                         Positioned(
                                           top: 8,
                                           left: 8,
@@ -989,7 +889,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                                   BorderRadius.circular(10),
                                             ),
                                             child: Text(
-                                              item['tag'],
+                                              item.tag!,
                                               style:
                                                   GoogleFonts.plusJakartaSans(
                                                 fontSize: 9,
@@ -1015,8 +915,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                (item['cat'] as String)
-                                                    .toUpperCase(),
+                                                item.category.toUpperCase(),
                                                 style:
                                                     GoogleFonts.plusJakartaSans(
                                                   fontSize: 9,
@@ -1027,7 +926,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                item['name'],
+                                                item.name,
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w700,
@@ -1039,7 +938,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                item['desc'],
+                                                item.description,
                                                 style:
                                                     GoogleFonts.plusJakartaSans(
                                                   fontSize: 10,
@@ -1059,7 +958,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                             children: [
                                               Expanded(
                                                 child: Text(
-                                                  _formatRp(item['price']),
+                                                  _formatRp(item.price),
                                                   style: GoogleFonts.poppins(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w700,
@@ -1101,7 +1000,7 @@ class _KasirScreenState extends State<KasirScreen> {
                                                     children: [
                                                       InkWell(
                                                         onTap: () => _removeItem(
-                                                            item['name']),
+                                                            item.id),
                                                         child: const Padding(
                                                           padding:
                                                               EdgeInsets.all(2),

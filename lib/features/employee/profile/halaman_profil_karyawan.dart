@@ -37,7 +37,7 @@ class ProfilScreen extends StatelessWidget {
               ),
             ),
             content: Text(
-              'Apakah Anda yakin ingin keluar dari sesi kasir Alisa Yasmin?',
+              'Apakah Anda yakin ingin keluar dari sesi kasir Azai Lunia?',
               style: GoogleFonts.plusJakartaSans(
                 color: onSurfaceVariant,
                 fontSize: 14,
@@ -223,7 +223,7 @@ class ProfilScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Alisa Yasmin',
+                            'Azai Lunia',
                             style: GoogleFonts.poppins(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,

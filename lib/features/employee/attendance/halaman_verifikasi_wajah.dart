@@ -2,10 +2,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui' show PathMetric;
 import 'dart:async';
-import 'package:intl/intl.dart';
+import 'dart:typed_data';
+import '../../../models/bukti_absensi.dart';
+import '../../../models/lokasi_absensi.dart';
+import '../../../services/layanan_kamera.dart';
+import '../../../services/layanan_waktu.dart';
 
 class VerifikasiWajahScreen extends StatefulWidget {
-  const VerifikasiWajahScreen({super.key});
+  const VerifikasiWajahScreen({super.key, required this.lokasi});
+
+  final LokasiAbsensi lokasi;
 
   @override
   State<VerifikasiWajahScreen> createState() => _VerifikasiWajahScreenState();
@@ -18,6 +24,11 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
 
   late Timer _timer;
   String _currentTime = "";
+  final LayananKamera _layananKamera = LayananKamera();
+  Uint8List? _foto;
+  DateTime? _waktuFoto;
+  bool _isCapturing = false;
+  bool _isFrontCamera = true;
 
   final Color primary = const Color(0xFF2563EB);
   final Color primaryContainer = const Color(0xFF1D4ED8);
@@ -50,7 +61,10 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
 
   void _updateTime() {
     setState(() {
-      _currentTime = "${DateFormat('HH:mm:ss').format(DateTime.now())} WIB";
+      _currentTime = LayananWaktu.formatJam(
+        LayananWaktu.sekarang(),
+        tampilDetik: true,
+      );
     });
   }
 
@@ -61,9 +75,57 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
     super.dispose();
   }
 
-  void _handleShutter() {
+  Future<void> _handleShutter() async {
+    if (_isCapturing) return;
 
-    Navigator.pushReplacementNamed(context, '/absen_sukses');
+    if (_foto != null) {
+      Navigator.pushReplacementNamed(
+        context,
+        '/absen_sukses',
+        arguments: BuktiAbsensi(
+          lokasi: widget.lokasi,
+          foto: _foto!,
+          waktuDiambil: _waktuFoto ?? LayananWaktu.sekarang(),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isCapturing = true);
+    try {
+      final hasilFoto = await _layananKamera.ambilFoto(
+        kameraDepan: _isFrontCamera,
+      );
+      if (hasilFoto == null || !mounted) return;
+
+      final bytes = await hasilFoto.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _foto = bytes;
+        _waktuFoto = LayananWaktu.sekarang();
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kamera gagal dibuka. Periksa izin kamera.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
+    }
+  }
+
+  void _retakePhoto() {
+    setState(() {
+      _foto = null;
+      _waktuFoto = null;
+    });
+  }
+
+  void _switchCamera() {
+    setState(() => _isFrontCamera = !_isFrontCamera);
   }
 
   @override
@@ -289,7 +351,12 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                                   Icon(Icons.videocam,
                                       color: primary, size: 16),
                                   const SizedBox(width: 6),
-                                  Text('KAMERA DEPAN',
+                                    Text(
+                                      _foto == null
+                                        ? (_isFrontCamera
+                                          ? 'KAMERA DEPAN'
+                                          : 'KAMERA BELAKANG')
+                                        : 'FOTO TERSIMPAN',
                                       style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
@@ -313,7 +380,7 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                                         color: primary, shape: BoxShape.circle),
                                   ),
                                   const SizedBox(width: 6),
-                                  Text('Wajah Siap',
+                                  Text(_foto == null ? 'Siap' : 'Tinjau Foto',
                                       style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
@@ -327,7 +394,8 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
 
                       Align(
                         alignment: Alignment.center,
-                        child: Stack(
+                        child: _foto == null
+                            ? Stack(
                           alignment: Alignment.center,
                           children: [
 
@@ -394,7 +462,16 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                               ),
                             )
                           ],
-                        ),
+                        )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: SizedBox.expand(
+                                  child: Image.memory(
+                                    _foto!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
                       ),
 
                       Align(
@@ -505,7 +582,7 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Warkop Cak Kebo • Akurasi 3m',
+                          'Koordinat ${widget.lokasi.koordinat} • Akurasi ${widget.lokasi.akurasiMeter.toStringAsFixed(0)}m',
                           style: TextStyle(fontSize: 12, color: onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -538,13 +615,14 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                       ]
                     ),
                     child: IconButton(
-                      icon: Icon(Icons.flash_on, color: secondary),
-                      onPressed: () {},
+                      tooltip: 'Ambil ulang foto',
+                      icon: Icon(Icons.refresh, color: secondary),
+                      onPressed: _foto == null ? null : _retakePhoto,
                     ),
                   ),
 
                   GestureDetector(
-                    onTap: _handleShutter,
+                    onTap: _isCapturing ? null : _handleShutter,
                     child: Container(
                       width: 80,
                       height: 80,
@@ -566,8 +644,19 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                         child: Container(
                           decoration: BoxDecoration(
                               color: primary, shape: BoxShape.circle),
-                          child: Icon(Icons.photo_camera,
-                              color: onPrimary, size: 30),
+                          child: _isCapturing
+                              ? const Padding(
+                                  padding: EdgeInsets.all(14),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  _foto == null ? Icons.photo_camera : Icons.check,
+                                  color: onPrimary,
+                                  size: 30,
+                                ),
                         ),
                       ),
                     ),
@@ -584,14 +673,26 @@ class _VerifikasiWajahScreenState extends State<VerifikasiWajahScreen>
                       ]
                     ),
                     child: IconButton(
+                      tooltip: 'Ganti kamera',
                       icon: Icon(Icons.flip_camera_ios, color: secondary),
-                      onPressed: () {},
+                      onPressed: _foto == null ? _switchCamera : null,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
+
+            Text(
+              _isCapturing
+                  ? 'Membuka kamera...'
+                  : _foto == null
+                      ? 'Ketuk tombol kamera untuk mengambil foto'
+                      : 'Periksa foto, lalu ketuk centang untuk konfirmasi',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: secondary),
+            ),
+            const SizedBox(height: 8),
 
             TextButton(
               onPressed: () {

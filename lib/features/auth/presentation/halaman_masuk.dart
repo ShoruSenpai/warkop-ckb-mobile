@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'pengendali_masuk.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -10,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
+  final LoginController _controller = LoginController();
 
   final Color primaryColor = const Color(0xFF2563EB);
   final Color primaryDark = const Color(0xFF1D4ED8);
@@ -122,14 +125,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       TextFormField(
-                        initialValue: 'alisa@cakkebo.id',
+                        initialValue: 'azai@cakkebo.id',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: onSurface,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'contoh: alisa@cakkebo.id atau CK-88',
+                          hintText: 'contoh: nama@cakkebo.id atau CK-88',
                           hintStyle: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             color: onSurfaceVariant.withOpacity(0.6),
@@ -244,8 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () =>
-                            Navigator.pushReplacementNamed(context, '/home'),
+                        onPressed: () => _controller.submit(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,

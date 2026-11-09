@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+
+import '../../../services/layanan_waktu.dart';
 
 class JadwalScreen extends StatefulWidget {
   const JadwalScreen({super.key});
@@ -9,17 +12,34 @@ class JadwalScreen extends StatefulWidget {
 }
 
 class _JadwalScreenState extends State<JadwalScreen> {
-  int _selectedDayIndex = 3;
+  late final DateTime _hariIni = LayananWaktu.sekarang();
+  late final DateTime _awalPekan = DateTime(
+    _hariIni.year,
+    _hariIni.month,
+    _hariIni.day,
+  ).subtract(Duration(days: _hariIni.weekday - 1));
+  late int _selectedDayIndex = _hariIni.weekday - 1;
 
-  final List<Map<String, dynamic>> _weekDays = [
-    {'day': 'Sen', 'date': 21, 'status': 'work'},
-    {'day': 'Sel', 'date': 22, 'status': 'work'},
-    {'day': 'Rab', 'date': 23, 'status': 'work'},
-    {'day': 'Kam', 'date': 24, 'status': 'active'},
-    {'day': 'Jum', 'date': 25, 'status': 'work'},
-    {'day': 'Sab', 'date': 26, 'status': 'off'},
-    {'day': 'Min', 'date': 27, 'status': 'work'},
-  ];
+  late final List<Map<String, dynamic>> _weekDays = List.generate(7, (index) {
+    const namaHari = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const statusHari = ['work', 'work', 'work', 'active', 'work', 'off', 'work'];
+    final tanggal = _awalPekan.add(Duration(days: index));
+    return {
+      'day': namaHari[index],
+      'date': tanggal.day,
+      'status': statusHari[index],
+    };
+  });
+
+  DateTime get _tanggalTerpilih =>
+      _awalPekan.add(Duration(days: _selectedDayIndex));
+
+  String get _rentangPekan {
+    final akhirPekan = _awalPekan.add(const Duration(days: 6));
+    final awal = DateFormat('d MMM', 'id_ID').format(_awalPekan);
+    final akhir = DateFormat('d MMM yyyy', 'id_ID').format(akhirPekan);
+    return 'Pekan ini ($awal - $akhir)';
+  }
 
   final Color primary = const Color(0xFF2563EB);
   final Color primaryDark = const Color(0xFF1D4ED8);
@@ -112,7 +132,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                               ),
                             ),
                             Text(
-                              'Shift Pagi • Kamis, 24 Okt (08.00 - 16.00 WIB)',
+                              'Shift Pagi • ${DateFormat('EEEE, d MMM', 'id_ID').format(_tanggalTerpilih)} (08.00 - 16.00 ${LayananWaktu.zonaWaktu(_tanggalTerpilih)})',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 color: secondary,
@@ -643,7 +663,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     Icon(Icons.calendar_today, size: 16, color: primary),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Oktober 2024',
+                                      LayananWaktu.formatBulanIndonesia(_hariIni),
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
@@ -704,7 +724,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Pekan Ke-4 (21 - 27 Okt)',
+                              _rentangPekan,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -838,7 +858,9 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'HARI INI',
+                                        _selectedDayIndex == _hariIni.weekday - 1
+                                          ? 'HARI INI'
+                                          : 'JADWAL TERPILIH',
                                         style: GoogleFonts.poppins(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,
@@ -847,7 +869,9 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Kamis, 24 Oktober 2024',
+                                        LayananWaktu.formatTanggalIndonesia(
+                                          _tanggalTerpilih,
+                                        ),
                                         style: GoogleFonts.poppins(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -965,7 +989,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'WIB',
+                                          LayananWaktu.zonaWaktu(_hariIni),
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
@@ -1168,26 +1192,26 @@ class _JadwalScreenState extends State<JadwalScreen> {
                         Column(
                           children: [
                             _buildUpcomingShiftCard(
-                              'Jum',
-                              '25',
+                              _weekDays[4]['day'] as String,
+                              _weekDays[4]['date'].toString(),
                               'Shift Siang (Closing)',
-                              '14.00 - 22.00 WIB • Bar Station',
+                              '14.00 - 22.00 ${LayananWaktu.zonaWaktu(_hariIni)} • Bar Station',
                               false,
                             ),
                             const SizedBox(height: 8),
                             _buildUpcomingShiftCard(
-                              'Sab',
-                              '26',
+                              _weekDays[5]['day'] as String,
+                              _weekDays[5]['date'].toString(),
                               'Hari Libur Mingguan',
                               'Day Off Terjadwal',
                               true,
                             ),
                             const SizedBox(height: 8),
                             _buildUpcomingShiftCard(
-                              'Min',
-                              '27',
+                              _weekDays[6]['day'] as String,
+                              _weekDays[6]['date'].toString(),
                               'Shift Pagi (Weekend)',
-                              '07.30 - 15.30 WIB • Cashier Lead',
+                              '07.30 - 15.30 ${LayananWaktu.zonaWaktu(_hariIni)} • Cashier Lead',
                               false,
                             ),
                           ],

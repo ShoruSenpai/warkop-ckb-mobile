@@ -586,7 +586,7 @@ class PesananBerhasilPage extends StatelessWidget {
                     SizedBox(height: 6),
                     _MetaRow(label: 'Meja', value: 'Meja #04 (Dine In)'),
                     SizedBox(height: 6),
-                    _MetaRow(label: 'Kasir', value: 'Alisa Yasmin'),
+                    _MetaRow(label: 'Kasir', value: 'Azai Lunia'),
                   ],
                 ),
               ),

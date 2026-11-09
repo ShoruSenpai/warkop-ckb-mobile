@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../models/lokasi_absensi.dart';
+import '../../../services/layanan_lokasi.dart';
+
 class VerifikasiLokasiScreen extends StatefulWidget {
   const VerifikasiLokasiScreen({super.key});
 
@@ -29,6 +32,10 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
   final Color successColor = const Color(0xFF0D9488);
 
   bool _isValidating = false;
+  bool _isGettingLocation = true;
+  LokasiAbsensi? _lokasi;
+  String? _pesanLokasi;
+  final LayananLokasi _layananLokasi = LayananLokasi();
 
   @override
   void initState() {
@@ -41,6 +48,7 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
     _pulseAnimation = Tween<double>(begin: 0.95, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _deteksiLokasi());
   }
 
   @override
@@ -49,14 +57,45 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
     super.dispose();
   }
 
-  void _proceedToFaceVerification() {
-    setState(() => _isValidating = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() => _isValidating = false);
+  Future<LokasiAbsensi?> _deteksiLokasi() async {
+    if (mounted) {
+      setState(() {
+        _isGettingLocation = true;
+        _pesanLokasi = null;
+      });
+    }
 
-      Navigator.pushNamed(context, '/verifikasi_wajah');
-    });
+    try {
+      final lokasi = await _layananLokasi.deteksiLokasi();
+      if (mounted) setState(() => _lokasi = lokasi);
+      return lokasi;
+    } on LayananLokasiException catch (error) {
+      if (mounted) setState(() => _pesanLokasi = error.pesan);
+      return null;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _pesanLokasi = 'Lokasi gagal dideteksi. Coba lagi.');
+      }
+      return null;
+    } finally {
+      if (mounted) setState(() => _isGettingLocation = false);
+    }
+  }
+
+  Future<void> _proceedToFaceVerification() async {
+    if (_isValidating) return;
+    setState(() => _isValidating = true);
+
+    final lokasi = await _deteksiLokasi();
+    if (!mounted) return;
+    setState(() => _isValidating = false);
+    if (lokasi == null) return;
+
+    Navigator.pushNamed(
+      context,
+      '/verifikasi_wajah',
+      arguments: lokasi,
+    );
   }
 
   @override
@@ -338,7 +377,11 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                                   color: Colors.white, size: 14),
                               const SizedBox(width: 5),
                               Text(
-                                'Dalam Radius (12m / 50m)',
+                                _lokasi == null
+                                    ? (_isGettingLocation
+                                        ? 'Mendeteksi Lokasi'
+                                        : 'Lokasi Belum Terdeteksi')
+                                    : 'GPS Terdeteksi',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -363,27 +406,33 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                       children: [
                         _buildInfoRow(
                           icon: Icons.store_mall_directory_outlined,
-                          title: 'Outlet Terdeteksi',
+                          title: 'Outlet Tujuan',
                           value: 'Warkop Cak Kebo - Outlet Utama',
                         ),
                         const Divider(height: 18, thickness: 0.8),
                         _buildInfoRow(
                           icon: Icons.near_me_outlined,
-                          title: 'Jarak ke Mesin Kasir',
-                          value: '12 Meter (Aman • Diizinkan)',
-                          valueColor: successColor,
+                          title: 'Akurasi GPS',
+                          value: _lokasi == null
+                              ? 'Belum tersedia'
+                              : '${_lokasi!.akurasiMeter.toStringAsFixed(0)} Meter',
+                          valueColor: _lokasi == null ? secondary : successColor,
                         ),
                         const Divider(height: 18, thickness: 0.8),
                         _buildInfoRow(
                           icon: Icons.my_location_outlined,
                           title: 'Koordinat GPS',
-                          value: '-7.2654° S, 112.7483° E',
+                          value: _lokasi?.koordinat ?? 'Belum tersedia',
                         ),
                         const Divider(height: 18, thickness: 0.8),
                         _buildInfoRow(
-                          icon: Icons.wifi,
-                          title: 'Jaringan Outlet',
-                          value: 'CKB-Staff-5G (Terhubung)',
+                            icon: Icons.gps_fixed,
+                            title: 'Status Lokasi',
+                            value: _lokasi == null
+                              ? (_isGettingLocation
+                                ? 'Sedang mencari GPS'
+                                : 'Perlu dicoba lagi')
+                              : 'Siap untuk absensi',
                         ),
                       ],
                     ),
@@ -391,6 +440,19 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                 ],
               ),
             ),
+            if (_pesanLokasi != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Text(
+                  _pesanLokasi!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
 
             Container(
@@ -419,7 +481,11 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Lanjut ke Verifikasi Wajah',
+                            _isGettingLocation
+                              ? 'Mendeteksi Lokasi'
+                              : _lokasi == null
+                                ? 'Coba Deteksi Lokasi'
+                                : 'Lanjut ke Verifikasi Wajah',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,

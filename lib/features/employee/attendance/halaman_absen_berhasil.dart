@@ -1,16 +1,20 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
+import '../../../models/bukti_absensi.dart';
+import '../../../services/layanan_waktu.dart';
 
 class AbsenSuksesScreen extends StatelessWidget {
-  const AbsenSuksesScreen({super.key});
+  const AbsenSuksesScreen({super.key, required this.bukti});
+
+  final BuktiAbsensi bukti;
 
   @override
   Widget build(BuildContext context) {
   
-    final now = DateTime.now();
-    final timeString = DateFormat('HH:mm:ss').format(now);
-    final dateString = DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(now);
+    final now = bukti.waktuDiambil;
+    final timeString = LayananWaktu.formatJam(now, tampilDetik: true);
+    final dateString = LayananWaktu.formatTanggalIndonesia(now);
 
     final Color primary = const Color(0xFF006194);
     final Color primaryContainer = const Color(0xFF007BB9);
@@ -103,7 +107,7 @@ class AbsenSuksesScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Data presensi Anda telah diverifikasi dan tersimpan di sistem.',
+              'Foto dan lokasi absensi berhasil diambil pada perangkat.',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 14, color: onSurfaceVariant, height: 1.4),
@@ -125,6 +129,16 @@ class AbsenSuksesScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.memory(
+                      bukti.foto,
+                      width: double.infinity,
+                      height: 190,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
@@ -158,13 +172,6 @@ class AbsenSuksesScreen extends StatelessWidget {
                                       color: onSurface),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'WIB',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: secondary),
-                                ),
                               ],
                             ),
                           ],
@@ -247,7 +254,7 @@ class AbsenSuksesScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'Alisa Yasmin',
+                              'Azai Lunia',
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -289,6 +296,34 @@ class AbsenSuksesScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.my_location,
+                                size: 18, color: secondary),
+                            const SizedBox(width: 8),
+                            Text('Koordinat GPS',
+                                style: TextStyle(
+                                    fontSize: 12, color: onSurfaceVariant)),
+                          ],
+                        ),
+                        Flexible(
+                          child: Text(
+                            bukti.lokasi.koordinat,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: onSurface),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 8),
 
@@ -318,13 +353,13 @@ class AbsenSuksesScreen extends StatelessWidget {
                                 Icon(Icons.pin_drop,
                                     size: 18, color: primary),
                                 const SizedBox(width: 8),
-                                Text('GPS Geofence',
+                                Text('Akurasi GPS',
                                     style: TextStyle(
                                         fontSize: 12, color: onSurface)),
                               ],
                             ),
                             Text(
-                              'Akurat (Radius 12m)',
+                              'Akurasi ${bukti.lokasi.akurasiMeter.toStringAsFixed(0)}m',
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -340,13 +375,13 @@ class AbsenSuksesScreen extends StatelessWidget {
                               children: [
                                 Icon(Icons.face, size: 18, color: primary),
                                 const SizedBox(width: 8),
-                                Text('Biometrik Wajah',
+                                Text('Bukti Foto',
                                     style: TextStyle(
                                         fontSize: 12, color: onSurface)),
                               ],
                             ),
                             Text(
-                              'Terverifikasi 99.4%',
+                              'Foto berhasil diambil',
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -395,20 +430,9 @@ class AbsenSuksesScreen extends StatelessWidget {
                 Icon(Icons.verified_user_outlined,
                     size: 14, color: secondary),
                 const SizedBox(width: 6),
-                RichText(
-                  text: TextSpan(
-                    text: 'ID Transaksi: ',
-                    style: TextStyle(fontSize: 10, color: secondary),
-                    children: [
-                      TextSpan(
-                        text: 'CK-ABS-20241024-0891',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: onSurfaceVariant),
-                      ),
-                      const TextSpan(text: ' • Tersinkron'),
-                    ],
-                  ),
+                Text(
+                  'Bukti tersedia selama aplikasi berjalan di perangkat ini',
+                  style: TextStyle(fontSize: 10, color: secondary),
                 ),
               ],
             ),
