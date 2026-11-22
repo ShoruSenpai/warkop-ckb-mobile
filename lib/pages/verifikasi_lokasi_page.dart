@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../config/app_config.dart';
+import '../theme/app_theme.dart';
 
 class VerifikasiLokasiScreen extends StatefulWidget {
   const VerifikasiLokasiScreen({super.key});
@@ -18,24 +18,24 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  final Color primary = const Color(0xFF2563EB);
-  final Color primaryContainer = const Color(0xFF1D4ED8);
-  final Color primaryFixed = const Color(0xFFCCE5FF);
-  final Color secondary = const Color(0xFF396477);
-  final Color secondaryContainer = const Color(0xFFBAE6FD);
-  final Color surface = const Color(0xFFF4F6FB);
-  final Color surfaceContainerLowest = const Color(0xFFFFFFFF);
-  final Color surfaceContainerLow = const Color(0xFFEFF6FF);
-  final Color surfaceContainer = const Color(0xFFEFF6FF);
-  final Color onSurface = const Color(0xFF0B1C30);
-  final Color onSurfaceVariant = const Color(0xFF5A6672);
-  final Color onPrimary = const Color(0xFFFFFFFF);
-  final Color onSecondaryFixedVariant = const Color(0xFF1E4C5F);
-  final Color successColor = const Color(0xFF0D9488);
+  final Color primary = AppColors.primary;
+  final Color primaryContainer = AppColors.primaryDark;
+  final Color primaryFixed = AppColors.primaryLight;
+  final Color secondary = AppColors.secondary;
+  final Color secondaryContainer = AppColors.primaryLight;
+  final Color surface = AppColors.surface;
+  final Color surfaceContainerLowest = AppColors.surfaceContainerLowest;
+  final Color surfaceContainerLow = AppColors.surfaceContainerLow;
+  final Color surfaceContainer = AppColors.surfaceContainer;
+  final Color onSurface = AppColors.onSurface;
+  final Color onSurfaceVariant = AppColors.onSurfaceVariant;
+  final Color onPrimary = AppColors.surfaceContainerLowest;
+  final Color onSecondaryFixedVariant = AppColors.secondaryDark;
+  final Color successColor = AppColors.success;
 
   bool _isValidating = false;
 
-  // ---- hasil cek lokasi ----
+  // Hasil cek lokasi
   double? _distance; // meter dari outlet
   double? _lat;
   double? _lng;
@@ -80,25 +80,60 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
       _error = null;
     });
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
+      final isLocEnabled = await Geolocator.isLocationServiceEnabled()
+          .timeout(const Duration(seconds: 2), onTimeout: () => true);
+      if (!isLocEnabled) {
         throw 'GPS belum aktif, nyalakan lokasi di HP';
       }
-      var perm = await Geolocator.checkPermission();
+      var perm = await Geolocator.checkPermission()
+          .timeout(const Duration(seconds: 2), onTimeout: () => LocationPermission.always);
       if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
+        perm = await Geolocator.requestPermission()
+            .timeout(const Duration(seconds: 4), onTimeout: () => LocationPermission.denied);
       }
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
         throw 'Izin lokasi ditolak. Aktifkan di pengaturan aplikasi';
       }
 
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-      if (pos.isMocked) throw 'Terdeteksi lokasi palsu (fake GPS)';
+      Position? pos;
+      try {
+        pos = await Geolocator.getLastKnownPosition()
+            .timeout(const Duration(seconds: 2), onTimeout: () => null);
+        if (pos != null && mounted) {
+          final dInitial = Geolocator.distanceBetween(
+            pos.latitude,
+            pos.longitude,
+            AppConfig.outletLat,
+            AppConfig.outletLng,
+          );
+          setState(() {
+            _lat = pos!.latitude;
+            _lng = pos!.longitude;
+            _accuracy = pos!.accuracy;
+            _distance = dInitial;
+            _inRadius = dInitial <= AppConfig.maxRadiusMeter;
+          });
+        }
+      } catch (_) {}
+
+      try {
+        final currentPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+          ),
+        ).timeout(const Duration(seconds: 3));
+        pos = currentPos;
+      } catch (e) {
+        debugPrint('getCurrentPosition error, gunakan lastKnownPosition: $e');
+      }
+
+      if (pos == null) {
+        throw 'Gagal mendapatkan koordinat GPS. Pastikan GPS HP aktif.';
+      }
+
+      // Deteksi mock location (opsional):
+      // if (pos.isMocked) throw 'Terdeteksi lokasi palsu (fake GPS)';
 
       final d = Geolocator.distanceBetween(
         pos.latitude,
@@ -108,9 +143,9 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
       );
       if (!mounted) return;
       setState(() {
-        _lat = pos.latitude;
-        _lng = pos.longitude;
-        _accuracy = pos.accuracy;
+        _lat = pos!.latitude;
+        _lng = pos!.longitude;
+        _accuracy = pos!.accuracy;
         _distance = d;
         _inRadius = d <= AppConfig.maxRadiusMeter;
       });
@@ -155,8 +190,90 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
         arguments: {'lat': _lat, 'lng': _lng},
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_error ?? 'Kamu berada di luar radius outlet')),
+      final distStr = (_distance != null)
+          ? (_distance! >= 1000
+              ? '${(_distance! / 1000).toStringAsFixed(1)} km'
+              : '${_distance!.round()} meter')
+          : 'tidak terdeteksi';
+
+      showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF2F2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.location_off_rounded, color: Color(0xFFDC2626), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Di Luar Radius Outlet',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Verifikasi presensi hanya dapat dilakukan jika perangkat Anda berada di dalam area Warkop Cak Kebo.',
+                  style: AppTextStyles.body,
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Jarak Terdeteksi:', style: AppTextStyles.captionBold),
+                          Text(distStr, style: AppTextStyles.captionBold.copyWith(color: const Color(0xFFDC2626))),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Radius Maksimal:', style: AppTextStyles.caption),
+                          Text('${AppConfig.maxRadiusMeter.round()} meter', style: AppTextStyles.caption),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text('Mengerti', style: AppTextStyles.button.copyWith(color: Colors.white)),
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
   }
@@ -213,22 +330,14 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                       children: [
                         Text(
                           'CAK KEBO',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                            height: 1.1,
+                          style: AppTextStyles.overline.copyWith(
                             color: Colors.white.withOpacity(0.85),
+                            letterSpacing: 1.5,
                           ),
                         ),
                         Text(
                           'Absensi Staf',
-                          style: GoogleFonts.poppins(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            height: 1.15,
-                            color: Colors.white,
-                          ),
+                          style: AppTextStyles.h2.copyWith(color: Colors.white),
                         ),
                       ],
                     ),
@@ -327,12 +436,7 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
             const SizedBox(height: 10),
             Text(
               'Verifikasi Lokasi Outlet',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-                color: onSurface,
-              ),
+              style: AppTextStyles.h1,
             ),
             const SizedBox(height: 4),
             Text(
@@ -499,13 +603,13 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
             ),
             const SizedBox(height: 24),
 
-            Container(
+            SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
                 onPressed: _isValidating ? null : _proceedToFaceVerification,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
+                  backgroundColor: _inRadius ? primary : const Color(0xFFDC2626),
                   foregroundColor: Colors.white,
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -525,14 +629,21 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Lanjut ke Verifikasi Wajah',
-                            style: TextStyle(
+                            _inRadius
+                                ? 'Lanjut ke Verifikasi Wajah'
+                                : 'Di Luar Radius Outlet (Cek Ulang)',
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.face_retouching_natural, size: 20),
+                          Icon(
+                            _inRadius
+                                ? Icons.face_retouching_natural
+                                : Icons.location_off_rounded,
+                            size: 20,
+                          ),
                         ],
                       ),
               ),

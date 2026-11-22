@@ -1,18 +1,398 @@
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../theme/app_theme.dart';
 import '../services/session.dart';
 
 class PesananBerhasilPage extends StatelessWidget {
   const PesananBerhasilPage({Key? key}) : super(key: key);
 
-  static const Color primaryColor = Color(0xFF006194);
-  static const Color primaryContainer = Color(0xFF007BB9);
-  static const Color secondaryContainer = Color(0xFFBAE6FD);
-  static const Color surfaceLow = Color(0xFFEFF4FF);
-  static const Color onSurface = Color(0xFF0B1C30);
-  static const Color onSurfaceVariant = Color(0xFF3F4850);
+  static const Color primaryColor = Color(0xFF2563EB);
+  static const Color primaryContainer = Color(0xFF1D4ED8);
+  static const Color secondaryContainer = Color(0xFFDBEAFE);
+  static const Color surfaceLow = Color(0xFFEFF6FF);
+  static const Color onSurface = Color(0xFF0F172A);
+  static const Color onSurfaceVariant = Color(0xFF475569);
+
+  // Cetak struk ke printer thermal
+  static Future<void> _printReceipt(BuildContext context, _OrderData d) async {
+    try {
+      final doc = pw.Document();
+      final fontRegular = pw.Font.helvetica();
+      final fontBold = pw.Font.helveticaBold();
+
+      doc.addPage(
+        pw.Page(
+          pageFormat: const PdfPageFormat(
+            58 * PdfPageFormat.mm,
+            double.infinity,
+            marginAll: 3 * PdfPageFormat.mm,
+          ),
+          build: (pw.Context ctx) {
+            return pw.Container(
+              padding: const pw.EdgeInsets.symmetric(vertical: 4),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    'WARKOP CAK KEBO',
+                    style: pw.TextStyle(font: fontBold, fontSize: 13),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    'Jl. Raya Warkop No. 01, Surabaya',
+                    style: pw.TextStyle(font: fontRegular, fontSize: 8),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                  pw.Text(
+                    'Telp: 0812-3456-7890',
+                    style: pw.TextStyle(font: fontRegular, fontSize: 8),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('No: ${d.code}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
+                      pw.Text('${d.orderType} • ${d.table}', style: pw.TextStyle(font: fontBold, fontSize: 8)),
+                    ],
+                  ),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(d.whenStr, style: pw.TextStyle(font: fontRegular, fontSize: 7)),
+                      pw.Text(
+                        Session.name.isNotEmpty ? Session.name : 'Kasir POS',
+                        style: pw.TextStyle(font: fontRegular, fontSize: 7),
+                      ),
+                    ],
+                  ),
+                  pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+                  ...d.items.map((item) {
+                    final qty = item['qty'] ?? 1;
+                    final name = (item['name'] ?? '-').toString();
+                    final price = (item['price'] as num?)?.toInt() ?? 0;
+                    final lineTotal = price * (qty as int);
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Expanded(
+                            child: pw.Text('${qty}x $name', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                          ),
+                          pw.Text(d.rp.format(lineTotal), style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                        ],
+                      ),
+                    );
+                  }),
+                  pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Subtotal', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                      pw.Text(d.rp.format(d.subtotal), style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                    ],
+                  ),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('PB1 Resto (10%)', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                      pw.Text(d.rp.format(d.tax), style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('TOTAL', style: pw.TextStyle(font: fontBold, fontSize: 10)),
+                      pw.Text(d.rp.format(d.total), style: pw.TextStyle(font: fontBold, fontSize: 10)),
+                    ],
+                  ),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Metode Bayar', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                      pw.Text('${d.payment} (Lunas)', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                    ],
+                  ),
+                  pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+                  pw.SizedBox(height: 4),
+                  pw.BarcodeWidget(
+                    data: d.code,
+                    barcode: pw.Barcode.code128(),
+                    width: 110,
+                    height: 28,
+                    drawText: false,
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Terima Kasih Atas Kunjungan Anda!',
+                    style: pw.TextStyle(font: fontBold, fontSize: 8),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                  pw.Text(
+                    'WiFi: ngebo / Password: warkopenak',
+                    style: pw.TextStyle(font: fontRegular, fontSize: 7),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => doc.save(),
+        name: 'Struk_${d.code}',
+      );
+    } catch (e) {
+      debugPrint('Gagal mencetak struk: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membuka printer: $e')),
+        );
+      }
+    }
+  }
+
+  // Kirim struk via WhatsApp
+  static String _buildWhatsAppMessage(_OrderData d) {
+    final buffer = StringBuffer();
+    buffer.writeln('☕ *WARKOP CAK KEBO* ☕');
+    buffer.writeln('📍 Jl. Raya Warkop No. 01, Surabaya');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('📄 *STRUK PEMBAYARAN*');
+    buffer.writeln('No. Pesanan : ${d.code}');
+    buffer.writeln('Waktu       : ${d.whenStr}');
+    buffer.writeln('Tipe / Meja : ${d.orderType} (${d.table})');
+    buffer.writeln('Kasir       : ${Session.name.isNotEmpty ? Session.name : 'Kasir POS'}');
+    buffer.writeln('Metode      : ${d.payment} (Lunas)');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━');
+    for (final item in d.items) {
+      final qty = item['qty'] ?? 1;
+      final name = item['name'] ?? '-';
+      final price = (item['price'] as num?)?.toInt() ?? 0;
+      buffer.writeln('$qty x $name  →  ${d.rp.format(price * (qty as int))}');
+    }
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('Subtotal    : ${d.rp.format(d.subtotal)}');
+    buffer.writeln('PB1 (10%)   : ${d.rp.format(d.tax)}');
+    buffer.writeln('*TOTAL      : ${d.rp.format(d.total)}*');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('Terima kasih atas kunjungannya di Warkop Cak Kebo! 🙏');
+    buffer.writeln('Selamat menikmati hidangan kami. ✨');
+    return buffer.toString();
+  }
+
+  static Future<void> _sendWhatsApp(BuildContext context, _OrderData d, [String? phone]) async {
+    final text = _buildWhatsAppMessage(d);
+    final encodedText = Uri.encodeComponent(text);
+
+    Uri uri;
+    if (phone != null && phone.trim().isNotEmpty) {
+      var cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '62${cleanPhone.substring(1)}';
+      } else if (!cleanPhone.startsWith('62')) {
+        cleanPhone = '62$cleanPhone';
+      }
+      uri = Uri.parse('https://wa.me/$cleanPhone?text=$encodedText');
+    } else {
+      uri = Uri.parse('whatsapp://send?text=$encodedText');
+    }
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        final fallbackUri = Uri.parse('https://api.whatsapp.com/send?text=$encodedText');
+        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Error launch WA: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tidak dapat membuka WhatsApp: $e')),
+        );
+      }
+    }
+  }
+
+  static void _showWhatsAppModal(BuildContext context, _OrderData d) {
+    final phoneController = TextEditingController();
+    final message = _buildWhatsAppMessage(d);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.send_to_mobile, color: Color(0xFF25D366), size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Kirim Struk WhatsApp',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Nomor WhatsApp Pelanggan',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Contoh: 08123456789 atau 62812...',
+                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(Icons.phone_android, size: 20, color: Color(0xFF2563EB)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Pratinjau Pesan Struk',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  constraints: const BoxConstraints(maxHeight: 130),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      message,
+                      style: AppTextStyles.mono(fontSize: 11, color: AppColors.secondaryDark),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.send, size: 18),
+                    label: Text(
+                      'Kirim ke Nomor Ini',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    onPressed: () {
+                      final phone = phoneController.text.trim();
+                      Navigator.pop(ctx);
+                      _sendWhatsApp(context, d, phone);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF2563EB),
+                      side: const BorderSide(color: Color(0xFF2563EB)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(Icons.share, size: 18),
+                    label: Text(
+                      'Pilih Kontak WhatsApp Langsung',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _sendWhatsApp(context, d, null);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,114 +402,100 @@ class PesananBerhasilPage extends StatelessWidget {
     final orderType = d.orderType;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        automaticallyImplyLeading: false,
-        title: Row(
+      backgroundColor: primaryColor,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: primaryColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.local_cafe, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cak Kebo',
-                  style: GoogleFonts.montserrat(
-                    color: const Color(0xFF0B1C30),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'POS TERMINAL',
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: secondaryContainer.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20),
-              ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 12, 16, 18),
               child: Row(
                 children: [
-                  Icon(Icons.table_restaurant, color: primaryColor, size: 16),
-                  SizedBox(width: 6),
-                  Text(
-                    orderType,
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.point_of_sale, color: primaryColor, size: 18),
-                      SizedBox(width: 4),
-                      Text(
-                        'Kasir POS / $orderType / ',
-                        style: TextStyle(color: onSurfaceVariant, fontSize: 13),
-                      ),
-                      Text(
-                        'Konfirmasi Pembayaran',
-                        style: TextStyle(
-                          color: const Color(0xFF0B1C30),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white, size: 20),
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacementNamed(context, '/kasir');
+                      }
+                    },
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Image.asset(
+                          'assets/images/logo_cak_kebo_transparent.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'CAK KEBO',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            height: 1.1,
+                            color: Colors.white.withOpacity(0.85),
+                          ),
+                        ),
+                        Text(
+                          'Pesanan Berhasil',
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.35),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_done, color: primaryColor, size: 14),
-                        SizedBox(width: 4),
+                        const Icon(Icons.check_circle,
+                            color: Colors.white, size: 14),
+                        const SizedBox(width: 5),
                         Text(
-                          'Ref: $code',
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontWeight: FontWeight.bold,
+                          orderType == 'Take Away' ? 'Take Away' : d.table,
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -137,32 +503,237 @@ class PesananBerhasilPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+            ),
 
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 800) {
-                    return Row(
+            // Konten struk dan aksi
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF4F6FB),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 7, child: _buildLeftColumn(context)),
-                        const SizedBox(width: 20),
-                        Expanded(flex: 5, child: _buildRightColumn(context)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.point_of_sale,
+                                      color: primaryColor, size: 18),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      orderType == 'Take Away'
+                                          ? 'Kasir POS • Take Away • Konfirmasi'
+                                          : 'Kasir POS • ${d.table} • Konfirmasi',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: onSurfaceVariant,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.cloud_done,
+                                      color: primaryColor, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Ref: $code',
+                                    style: const TextStyle(
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth > 800) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                      flex: 7,
+                                      child: _buildLeftColumn(context)),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                      flex: 5,
+                                      child: _buildRightColumn(context)),
+                                ],
+                              );
+                            } else {
+                              return Column(
+                                children: [
+                                  _buildLeftColumn(context),
+                                  const SizedBox(height: 20),
+                                  _buildRightColumn(context),
+                                ],
+                              );
+                            }
+                          },
+                        ),
                       ],
-                    );
-                  } else {
-                    return Column(
-                      children: [
-                        _buildLeftColumn(context),
-                        const SizedBox(height: 20),
-                        _buildRightColumn(context),
-                      ],
-                    );
-                  }
-                },
+                    ),
+                  ),
+                ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          10,
+          16,
+          12 + MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
+            top: BorderSide(color: Color(0xFFE2E8F0)),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Material(
+              color: surfaceLow,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _printReceipt(context, d),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.print_rounded, size: 20, color: primaryColor),
+                      SizedBox(height: 2),
+                      Text(
+                        'Cetak Struk',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: surfaceLow,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showWhatsAppModal(context, d),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.send_to_mobile_rounded, size: 20, color: Color(0xFF25D366)),
+                      SizedBox(height: 2),
+                      Text(
+                        'Kirim WA',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/kasir');
+                    }
+                  },
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                  label: const Text(
+                    'Pesanan Baru',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -241,14 +812,14 @@ class PesananBerhasilPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0B1C30),
+                  color: Color(0xFF0B1C30),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Nomor Pesanan $code • $orderType • $payment',
+                'Nomor Pesanan $code • ${orderType == 'Take Away' ? 'Take Away' : d.table} • $payment',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: onSurfaceVariant, fontSize: 13),
+                style: const TextStyle(color: onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 20),
 
@@ -275,7 +846,7 @@ class PesananBerhasilPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text(
+                        const Text(
                           'Rp ',
                           style: TextStyle(
                             color: primaryColor,
@@ -285,7 +856,7 @@ class PesananBerhasilPage extends StatelessWidget {
                         ),
                         Text(
                           NumberFormat.decimalPattern('id_ID').format(total),
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: primaryColor,
                             fontSize: 36,
                             fontWeight: FontWeight.w800,
@@ -294,32 +865,43 @@ class PesananBerhasilPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
-                        Icon(Icons.schedule, size: 14, color: primaryColor),
-                        SizedBox(width: 4),
-                        Text(
-                          whenStr,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: onSurfaceVariant,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.schedule, size: 14, color: primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              whenStr,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(width: 10),
-                        Text(
+                        const Text(
                           '•',
                           style: TextStyle(color: onSurfaceVariant),
                         ),
-                        SizedBox(width: 10),
-                        Icon(Icons.qr_code_2, size: 14, color: primaryColor),
-                        SizedBox(width: 4),
-                        Text(
-                          'Metode: $payment',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: onSurfaceVariant,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.qr_code_2, size: 14, color: primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Metode: $payment',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -358,11 +940,11 @@ class PesananBerhasilPage extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
-                              color: const Color(0xFF0B1C30),
+                              color: Color(0xFF0B1C30),
                             ),
                           ),
                           Text(
-                            '2 Antrean Minuman • 1 Makanan',
+                            'Antrean Minuman & Makanan Aktif',
                             style: TextStyle(
                               fontSize: 11,
                               color: onSurfaceVariant,
@@ -381,7 +963,7 @@ class PesananBerhasilPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'Cetak KOT OK',
+                        'Terkirim',
                         style: TextStyle(
                           color: primaryColor,
                           fontSize: 10,
@@ -395,137 +977,7 @@ class PesananBerhasilPage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
 
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'AKSI CEPAT TERMINAL',
-                style: TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.popUntil(
-                          context,
-                          ModalRoute.withName('/home'),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.add_circle,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      label: const Text(
-                        'Pesanan Baru',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: surfaceLow,
-                        side: BorderSide.none,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Mencetak struk thermal...'),
-                          ),
-                        );
-                      },
-                      child: const Column(
-                        children: [
-                          Icon(Icons.print, color: primaryColor, size: 20),
-                          SizedBox(height: 2),
-                          Text(
-                            'Cetak Struk',
-                            style: TextStyle(
-                              color: const Color(0xFF0B1C30),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: surfaceLow,
-                        side: BorderSide.none,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Struk terkirim ke WhatsApp!'),
-                          ),
-                        );
-                      },
-                      child: const Column(
-                        children: [
-                          Icon(
-                            Icons.send_to_mobile,
-                            color: primaryColor,
-                            size: 20,
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Kirim WA',
-                            style: TextStyle(
-                              color: const Color(0xFF0B1C30),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -571,7 +1023,7 @@ class PesananBerhasilPage extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0B1C30),
+                          color: Color(0xFF0B1C30),
                         ),
                       ),
                     ],
@@ -587,7 +1039,7 @@ class PesananBerhasilPage extends StatelessWidget {
                     ),
                     child: Text(
                       'PAID $code',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -610,7 +1062,7 @@ class PesananBerhasilPage extends StatelessWidget {
                     const SizedBox(height: 6),
                     _MetaRow(label: 'Pembayaran', value: payment),
                     const SizedBox(height: 6),
-                    _MetaRow(label: 'Kasir', value: Session.name),
+                    _MetaRow(label: 'Kasir', value: Session.name.isNotEmpty ? Session.name : 'Kasir POS'),
                   ],
                 ),
               ),
@@ -649,32 +1101,32 @@ class PesananBerhasilPage extends StatelessWidget {
                       label: 'Subtotal Penjualan',
                       value: rp.format(subtotal),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     _PriceRow(
                       label: 'PB1 / Pajak Resto (10%)',
                       value: rp.format(tax),
                     ),
-                    SizedBox(height: 6),
-                    _PriceRow(
+                    const SizedBox(height: 6),
+                    const _PriceRow(
                       label: 'Diskon Promosi',
                       value: '- Rp 0',
                       isDiscount: true,
                     ),
-                    Divider(height: 16),
+                    const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'Total Pembayaran',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: const Color(0xFF0B1C30),
+                            color: Color(0xFF0B1C30),
                           ),
                         ),
                         Text(
                           rp.format(total),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: primaryColor,
@@ -738,7 +1190,7 @@ class _ItemTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF).withOpacity(0.7),
+        color: PesananBerhasilPage.surfaceLow,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -746,13 +1198,13 @@ class _ItemTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFBAE6FD),
+              color: PesananBerhasilPage.secondaryContainer,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               qty,
               style: const TextStyle(
-                color: Color(0xFF006194),
+                color: PesananBerhasilPage.primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -832,6 +1284,7 @@ class _PriceRow extends StatelessWidget {
 class _OrderData {
   final String code;
   final String orderType;
+  final String table;
   final String payment;
   final String whenStr;
   final int subtotal;
@@ -844,6 +1297,7 @@ class _OrderData {
   _OrderData._({
     required this.code,
     required this.orderType,
+    required this.table,
     required this.payment,
     required this.whenStr,
     required this.subtotal,
@@ -864,6 +1318,7 @@ class _OrderData {
     return _OrderData._(
       code: (o['code'] ?? '-').toString(),
       orderType: (o['order_type'] ?? '-').toString(),
+      table: (o['table'] ?? o['terminal_id'] ?? 'Meja 01').toString(),
       payment: (o['payment_method'] ?? '-').toString(),
       whenStr: '${DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(when)} WIB',
       subtotal: n(o['subtotal']),

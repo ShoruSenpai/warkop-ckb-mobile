@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
 import 'services/session.dart';
+import 'theme/app_theme.dart';
 
+import 'pages/main_tab_screen.dart';
 import 'pages/login_page.dart';
-import 'pages/absensi_page.dart';
 import 'pages/verifikasi_lokasi_page.dart';
 import 'pages/verifikasi_wajah_page.dart';
 import 'pages/absen_berhasil_page.dart';
-import 'pages/profil_karyawan.dart';
-import 'pages/kasir_page.dart';
 import 'pages/pesanan_berhasil.dart';
-import 'pages/jadwal_kerja.dart';
 import 'pages/ganti_shift.dart';
 
-// Helper shortcut untuk panggil supabase
+// Instance Supabase
 final supabase = Supabase.instance.client;
 
 Future<void> main() async {
@@ -24,11 +21,11 @@ Future<void> main() async {
   await initializeDateFormatting('id_ID', null);
 
   await Supabase.initialize(
-    url: 'https://pofirbljrqzuoxvepmnd.supabase.co',
-    anonKey: 'sb_publishable_PGoOfnwfHImY2xZxLQCEaA_aMMMEh8-',
+    url: 'https://nxoldftqeclfdalotbqx.supabase.co',
+    publishableKey: 'sb_publishable_YUxWsuN-HmPzRupF8OXCsw_NVLHi3RN',
   );
 
-  await Session.load(); // baca token login yang tersimpan
+  await Session.load(); // Baca session login tersimpan
   runApp(const MyApp());
 }
 
@@ -39,29 +36,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Aplikasi Karyawan',
-      theme: ThemeData(
-        fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
-        appBarTheme: AppBarTheme(
-          titleTextStyle: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF0B1C30),
-          ),
-        ),
-      ),
+      title: 'Cak Kebo',
+      theme: AppTheme.lightTheme,
       initialRoute: Session.isLoggedIn ? '/home' : '/login',
       routes: {
-        '/': (context) => const HomeScreen(),
+        '/': (context) => const MainTabScreen(initialTab: 0),
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
+        '/home': (context) => const MainTabScreen(initialTab: 0),
         '/verifikasi_lokasi': (context) => const VerifikasiLokasiScreen(),
         '/verifikasi_wajah': (context) => const VerifikasiWajahScreen(),
         '/absen_sukses': (context) => const AbsenSuksesScreen(),
-        '/profil': (context) => const ProfilScreen(),
-        '/kasir': (context) => const KasirScreen(),
+        '/profil': (context) => const MainTabScreen(initialTab: 3),
+        '/kasir': (context) => const MainTabScreen(initialTab: 2),
         '/pesanan_berhasil': (context) => const PesananBerhasilPage(),
-        '/jadwal': (context) => const JadwalScreen(),
+        '/jadwal': (context) => const MainTabScreen(initialTab: 1),
         '/shift': (context) => const ShiftScreen(),
       },
     );

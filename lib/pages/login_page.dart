@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_theme.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
@@ -15,10 +15,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
-  final TextEditingController _idController =
-      TextEditingController(text: 'cici@gmail.com');
-  final TextEditingController _passController =
-      TextEditingController(text: 'admin123');
+  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
   bool _loading = false;
 
   @override
@@ -43,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
     try {
       final supabase = Supabase.instance.client;
-      // 1. Cari user di database Supabase berdasarkan email atau username
+      // Cari user berdasarkan email atau username
       final user = await supabase
           .from('users')
           .select()
@@ -70,29 +68,46 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         if (!isPasswordValid) {
-          _toast('Kata sandi salah');
+          _toast('ID / Email atau password salah');
           return;
         }
 
-        // 2. Ambil profil karyawan dari tabel employees jika ada
+        // Ambil data karyawan dari tabel employees
         final emp = await supabase
             .from('employees')
             .select()
             .eq('user_id', user['id'])
             .maybeSingle();
 
+        String shiftName = 'Shift Pagi';
+        try {
+          final now = DateTime.now();
+          final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+          final sched = await supabase
+              .from('employee_schedules')
+              .select('shift_name')
+              .eq('employee_id', emp?['id'] ?? user['id'])
+              .eq('schedule_date', todayStr)
+              .maybeSingle();
+          if (sched != null && sched['shift_name'] != null) {
+            shiftName = sched['shift_name'].toString();
+          }
+        } catch (_) {}
+
         await Session.save(user['id'].toString(), {
+          'id': user['id'],
+          'employee_id': emp?['id'] ?? user['id'],
           'name': emp?['full_name'] ?? user['username'] ?? 'Karyawan',
           'role': emp?['position'] ?? user['role'] ?? 'Staf',
           'outlet': 'Cak Kebo Senopati',
-          'shift': 'Shift Pagi',
+          'shift': shiftName,
           'employee_code': emp?['employee_code'] ?? 'CK-${user['id']}',
         });
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        _toast('Email atau username tidak ditemukan di database Supabase');
+        _toast('ID / Email atau password salah');
       }
     } catch (e) {
       _toast('Gagal koneksi Supabase: $e');
@@ -168,62 +183,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 14),
                       Text(
                         'CAK KEBO',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2.0,
-                          color: primaryColor,
-                        ),
+                        style: AppTextStyles.overline.copyWith(color: primaryColor, letterSpacing: 2.0),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Selamat Datang',
-                        style: GoogleFonts.poppins(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                          color: onSurface,
-                        ),
+                        style: AppTextStyles.h1,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Masuk untuk mengakses portal staf & presensi',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: onSurfaceVariant,
-                        ),
+                        style: AppTextStyles.body,
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8),
                           child: Text(
                             'ID KARYAWAN / EMAIL',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: onSurfaceVariant,
-                            ),
+                            style: AppTextStyles.overline,
                           ),
                         ),
                       ),
                       TextFormField(
                         controller: _idController,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: onSurface,
-                        ),
+                        style: AppTextStyles.bodyLargeBold,
                         decoration: InputDecoration(
                           hintText: 'contoh: alisa@cakkebo.id atau CK-88',
-                          hintStyle: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            color: onSurfaceVariant.withOpacity(0.6),
-                          ),
+                          hintStyle: AppTextStyles.body,
                           prefixIcon: Icon(
                             Icons.badge_outlined,
                             color: primaryColor,
@@ -253,29 +242,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.only(left: 4, bottom: 8),
                           child: Text(
                             'KATA SANDI',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                              color: onSurfaceVariant,
-                            ),
+                            style: AppTextStyles.overline,
                           ),
                         ),
                       ),
                       TextFormField(
                         obscureText: !_isPasswordVisible,
                         controller: _passController,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: onSurface,
-                        ),
+                        style: AppTextStyles.bodyLargeBold,
                         decoration: InputDecoration(
                           hintText: 'Masukkan kata sandi akun',
-                          hintStyle: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            color: onSurfaceVariant.withOpacity(0.6),
-                          ),
+                          hintStyle: AppTextStyles.body,
                           prefixIcon: Icon(
                             Icons.lock_outline,
                             color: primaryColor,
@@ -324,11 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Text(
                             'Lupa Kata Sandi?',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryColor,
-                            ),
+                            style: AppTextStyles.subtitle.copyWith(color: primaryColor),
                           ),
                         ),
                       ),
@@ -349,10 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               _loading ? 'Memproses...' : 'Masuk ke Sistem',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.button,
                             ),
                             const SizedBox(width: 8),
                             const Icon(Icons.arrow_forward, size: 18),
@@ -368,12 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(width: 6),
                           Text(
                             'ENKRIPSI DATA AMAN TERPROTEKSI',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: onSurfaceVariant,
-                            ),
+                            style: AppTextStyles.overline,
                           ),
                         ],
                       ),
@@ -386,21 +351,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       'Butuh bantuan masuk? ',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: onSurfaceVariant,
-                      ),
+                      style: AppTextStyles.body,
                     ),
                     GestureDetector(
                       onTap: () {},
                       child: Text(
                         'Hubungi Manager Outlet',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: primaryColor,
-                        ),
+                        style: AppTextStyles.bodyBold.copyWith(color: primaryColor),
                       ),
                     ),
                   ],
@@ -408,10 +365,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Cak Kebo Staff Portal v2.4.0',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: onSurfaceVariant.withOpacity(0.6),
-                  ),
+                  style: AppTextStyles.caption,
                 ),
               ],
             ),
