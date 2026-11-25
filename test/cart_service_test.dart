@@ -15,6 +15,7 @@ void main() {
 
     test('updates quantity and totals when items are added or removed', () {
       final cart = CartService();
+      cart.taxRate = 0.10;
 
       cart.addProduct(product);
       cart.addProduct(product);

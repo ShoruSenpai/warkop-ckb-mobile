@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../../models/bukti_absensi.dart';
+import '../../features/owner/halaman_owner.dart';
+import '../../features/employee/attendance/halaman_pengaturan_presensi.dart';
 import '../../models/lokasi_absensi.dart';
 import '../../features/auth/presentation/halaman_masuk.dart';
 import '../../features/cashier/orders/halaman_pesanan_berhasil.dart';
@@ -20,6 +22,8 @@ abstract final class AppRouter {
     '/': (context) => const HomeScreen(),
     '/login': (context) => const LoginScreen(),
     '/home': (context) => const HomeScreen(),
+    '/owner': (context) => const OwnerScreen(),
+    '/pengaturan_presensi': (context) => const PengaturanPresensiScreen(),
     '/verifikasi_lokasi': (context) => const VerifikasiLokasiScreen(),
     '/verifikasi_wajah': (context) {
       final lokasi = ModalRoute.of(context)?.settings.arguments;
@@ -35,7 +39,12 @@ abstract final class AppRouter {
     },
     '/profil': (context) => const ProfilScreen(),
     '/kasir': (context) => const KasirScreen(),
-    '/pesanan_berhasil': (context) => const PesananBerhasilPage(),
+    '/pesanan_berhasil': (context) {
+      final sale = ModalRoute.of(context)?.settings.arguments;
+      return sale is Map<String, dynamic>
+          ? PesananBerhasilPage(sale: sale)
+          : const KasirScreen();
+    },
     '/jadwal': (context) => const JadwalScreen(),
     '/shift': (context) => const ShiftScreen(),
   };

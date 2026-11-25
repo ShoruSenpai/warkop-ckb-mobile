@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/lokasi_absensi.dart';
 import '../../../services/layanan_lokasi.dart';
+import '../../../services/layanan_presensi.dart';
 
 class VerifikasiLokasiScreen extends StatefulWidget {
   const VerifikasiLokasiScreen({super.key});
@@ -61,16 +62,28 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
     if (mounted) {
       setState(() {
         _isGettingLocation = true;
+        _lokasi = null;
         _pesanLokasi = null;
       });
     }
 
     try {
       final lokasi = await _layananLokasi.deteksiLokasi();
+      final status = await LayananPresensi.instance.status();
+      if (status['face_enrolled'] != true) {
+        throw const PresensiException('Wajah Anda belum didaftarkan. Hubungi pengelola presensi.');
+      }
+      if (status['next_type'] == null) {
+        throw const PresensiException('Presensi masuk dan pulang hari ini sudah lengkap.');
+      }
+      await LayananPresensi.instance.cekLokasi(lokasi);
       if (mounted) setState(() => _lokasi = lokasi);
       return lokasi;
     } on LayananLokasiException catch (error) {
       if (mounted) setState(() => _pesanLokasi = error.pesan);
+      return null;
+    } on PresensiException catch (error) {
+      if (mounted) setState(() { _lokasi = null; _pesanLokasi = error.pesan; });
       return null;
     } catch (_) {
       if (mounted) {
@@ -459,7 +472,7 @@ class _VerifikasiLokasiScreenState extends State<VerifikasiLokasiScreen>
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isValidating ? null : _proceedToFaceVerification,
+                onPressed: _isValidating || _isGettingLocation ? null : _proceedToFaceVerification,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
                   foregroundColor: Colors.white,

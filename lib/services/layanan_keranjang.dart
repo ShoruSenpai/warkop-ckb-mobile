@@ -5,7 +5,7 @@ class CartService {
   CartService({List<CartItem> initialItems = const []})
     : _items = List.of(initialItems);
 
-  static const taxRate = 0.10;
+  double taxRate = 0;
 
   final List<CartItem> _items;
 
@@ -14,6 +14,7 @@ class CartService {
   int get tax => (subtotal * taxRate).round();
   int get total => subtotal + tax;
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
+  void clear() => _items.clear();
 
   int quantityFor(String productId) {
     for (final item in _items) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'pengendali_masuk.dart';
+import '../../../services/layanan_presensi.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,7 +12,133 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
-  final LoginController _controller = LoginController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _sibuk = false;
+  String? _pesan;
+  String _alamatServer = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _muatAlamat();
+  }
+
+  Future<void> _muatAlamat() async {
+    try {
+      final alamat = await LayananPresensi.instance.alamatServer();
+      if (mounted) setState(() => _alamatServer = alamat);
+    } catch (_) {
+      if (mounted) setState(() => _pesan = 'Atur kembali alamat server.');
+    }
+  }
+
+  Future<void> _aturAlamat() async {
+    final controller = TextEditingController(text: _alamatServer);
+    bool menyimpan = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, ubah) => AlertDialog(
+          title: const Text('Alamat server Laravel'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tempel link HTTPS Forwarding dari ngrok yang mengarah ke Laravel. Akhiran /api ditambahkan otomatis.',
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  enabled: !menyimpan,
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  decoration: InputDecoration(
+                    labelText: 'Link ngrok',
+                    hintText: 'https://nama.ngrok-free.app',
+                    errorText: error,
+                    errorMaxLines: 5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: menyimpan ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: menyimpan
+                  ? null
+                  : () async {
+                      ubah(() {
+                        menyimpan = true;
+                        error = null;
+                      });
+                      try {
+                        await LayananPresensi.instance.aturServer(
+                          controller.text,
+                        );
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } catch (e) {
+                        if (dialogContext.mounted) {
+                          ubah(() {
+                            menyimpan = false;
+                            error = e is PresensiException ? e.pesan : 'Server tidak dapat dihubungi. Pastikan Laravel dan ngrok berjalan, lalu periksa koneksi internet.';
+                          });
+                        }
+                      }
+                    },
+              child: Text(menyimpan ? 'Memeriksa…' : 'Cek & simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+    // The dialog may still be animating while its text field is disposed.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+    if (mounted) await _muatAlamat();
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _masuk() async {
+    if (_sibuk) return;
+    if (!_email.text.contains('@') || _password.text.isEmpty) {
+      setState(() => _pesan = 'Isi email dan kata sandi akun Warkop CKB.');
+      return;
+    }
+    setState(() {
+      _sibuk = true;
+      _pesan = null;
+    });
+    try {
+      await LayananPresensi.instance.masuk(_email.text, _password.text);
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _pesan = error is PresensiException
+              ? error.pesan
+              : 'Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sibuk = false);
+    }
+  }
 
   final Color primaryColor = const Color(0xFF2563EB);
   final Color primaryDark = const Color(0xFF1D4ED8);
@@ -38,7 +164,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(maxWidth: 420),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 32,
+                  ),
                   decoration: BoxDecoration(
                     color: surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(24),
@@ -109,12 +238,30 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
+                      Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.dns_outlined),
+                          title: const Text('Alamat server'),
+                          subtitle: Text(
+                            _alamatServer.isEmpty
+                                ? 'Tempel link ngrok Laravel'
+                                : _alamatServer,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: const Icon(Icons.edit_outlined),
+                          onTap: _sibuk ? null : _aturAlamat,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8),
                           child: Text(
-                            'ID KARYAWAN / EMAIL',
+                            'EMAIL KARYAWAN',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -125,14 +272,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       TextFormField(
-                        initialValue: 'azai@cakkebo.id',
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.username],
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: onSurface,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'contoh: nama@cakkebo.id atau CK-88',
+                          hintText: 'contoh: nama@cakkebo.id',
                           hintStyle: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             color: onSurfaceVariant.withOpacity(0.6),
@@ -150,13 +299,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: outlineColor, width: 0.8),
+                            borderSide: BorderSide(
+                              color: outlineColor,
+                              width: 0.8,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: primaryColor, width: 1.5),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 1.5,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -177,7 +334,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       TextFormField(
                         obscureText: !_isPasswordVisible,
-                        initialValue: 'password123',
+                        controller: _password,
+                        autofillHints: const [AutofillHints.password],
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -216,13 +374,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: outlineColor, width: 0.8),
+                            borderSide: BorderSide(
+                              color: outlineColor,
+                              width: 0.8,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: primaryColor, width: 1.5),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 1.5,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
                         ),
                       ),
                       Align(
@@ -231,7 +397,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () {},
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 8),
+                              horizontal: 4,
+                              vertical: 8,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -246,8 +414,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (_pesan != null)
+                        Text(
+                          _pesan!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ElevatedButton(
-                        onPressed: () => _controller.submit(context),
+                        onPressed: _sibuk ? null : _masuk,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -261,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Masuk ke Sistem',
+                              _sibuk ? 'Sedang masuk...' : 'Masuk ke Sistem',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -276,8 +449,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.gpp_good_outlined,
-                              color: primaryColor, size: 17),
+                          Icon(
+                            Icons.gpp_good_outlined,
+                            color: primaryColor,
+                            size: 17,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'ENKRIPSI DATA AMAN TERPROTEKSI',

@@ -107,7 +107,7 @@ class AbsenSuksesScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Foto dan lokasi absensi berhasil diambil pada perangkat.',
+              'Presensi #${bukti.id} tersimpan di server. Wajah cocok dan lokasi berada dalam radius outlet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 14, color: onSurfaceVariant, height: 1.4),
@@ -194,7 +194,7 @@ class AbsenSuksesScreen extends StatelessWidget {
                                   size: 16, color: onSecondaryContainer),
                               const SizedBox(width: 4),
                               Text(
-                                'Tepat Waktu',
+                                'Tercatat',
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -254,14 +254,14 @@ class AbsenSuksesScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'Azai Lunia',
+                              bukti.namaKaryawan,
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: onSurface),
                             ),
                             Text(
-                              'Barista • Shift Pagi',
+                              bukti.jenis == 'masuk' ? 'Presensi masuk' : 'Presensi pulang',
                               style: TextStyle(
                                   fontSize: 12, color: secondary),
                             ),
@@ -287,7 +287,7 @@ class AbsenSuksesScreen extends StatelessWidget {
                           ],
                         ),
                         Text(
-                          'Warkop Cak Kebo',
+                          bukti.namaOutlet,
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,

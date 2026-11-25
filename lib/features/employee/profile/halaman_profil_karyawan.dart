@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../services/layanan_presensi.dart';
 
 class ProfilScreen extends StatelessWidget {
   const ProfilScreen({super.key});
@@ -37,7 +38,7 @@ class ProfilScreen extends StatelessWidget {
               ),
             ),
             content: Text(
-              'Apakah Anda yakin ingin keluar dari sesi kasir Azai Lunia?',
+              'Apakah Anda yakin ingin keluar dari akun ini?',
               style: GoogleFonts.plusJakartaSans(
                 color: onSurfaceVariant,
                 fontSize: 14,
@@ -63,7 +64,9 @@ class ProfilScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
+                  try { await LayananPresensi.instance.keluar(); } catch (_) {}
+                  if (!context.mounted || !dialogContext.mounted) return;
                   Navigator.of(dialogContext).pop();
                   Navigator.pushNamedAndRemoveUntil(
                     context,
@@ -223,7 +226,7 @@ class ProfilScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Azai Lunia',
+                            LayananPresensi.instance.nama ?? 'Karyawan',
                             style: GoogleFonts.poppins(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
@@ -233,7 +236,7 @@ class ProfilScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Barista Lead • Cak Kebo Senopati',
+                            LayananPresensi.instance.pengelola ? 'Owner • Warkop CKB' : 'Karyawan • Warkop CKB',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -248,7 +251,7 @@ class ProfilScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              'ID Karyawan: CK-88219',
+                              'ID Karyawan: ${(LayananPresensi.instance.statusTerakhir?['user'] as Map?)?['id'] ?? "—"}',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -850,7 +853,7 @@ class ProfilScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Koneksi Server: Terhubung (Outlet Senopati 01)',
+                        'Akun: ${(LayananPresensi.instance.statusTerakhir?['user'] as Map?)?['email'] ?? "—"}',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10,
                           color: secondary.withOpacity(0.7),

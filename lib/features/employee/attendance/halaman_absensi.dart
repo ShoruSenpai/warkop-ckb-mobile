@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'dart:async';
 
 import '../../../services/layanan_waktu.dart';
+import '../../../services/layanan_presensi.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,10 +18,33 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isClockingIn = false;
   late Timer _timer;
   DateTime _now = LayananWaktu.sekarang();
+  Map<String, dynamic>? _status;
+  String? _errorStatus;
+
+  Future<void> _muatStatus() async {
+    try {
+      final status = await LayananPresensi.instance.status();
+      if (mounted) {
+        setState(() {
+          _status = status;
+          _errorStatus = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _errorStatus = error is PresensiException
+              ? error.pesan
+              : 'Server tidak dapat dihubungi. Coba lagi.',
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _muatStatus();
     _now = LayananWaktu.sekarang();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -38,7 +63,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatDate(DateTime dt) {
     const days = ['', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
     return '${days[dt.weekday]}, ${dt.day} ${months[dt.month]}';
   }
 
@@ -66,27 +105,53 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 3) Navigator.pushNamed(context, '/profil');
   }
 
-  void _handleClockIn() {
+  Future<void> _handleClockIn() async {
     setState(() => _isClockingIn = true);
-    Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
-      setState(() => _isClockingIn = false);
-      Navigator.pushNamed(context, '/verifikasi_lokasi');
-    });
+    await _muatStatus();
+    if (!mounted) return;
+    setState(() => _isClockingIn = false);
+    if (_errorStatus != null ||
+        _status?['next_type'] == null ||
+        _status?['face_enrolled'] != true ||
+        _status?['outlet'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _errorStatus ??
+                (_status?['outlet'] == null
+                    ? 'Titik outlet belum diatur pengelola.'
+                    : _status?['face_enrolled'] != true
+                    ? 'Wajah belum didaftarkan pengelola.'
+                    : 'Presensi masuk dan pulang hari ini sudah lengkap.'),
+          ),
+        ),
+      );
+      return;
+    }
+    await Navigator.pushNamed(context, '/verifikasi_lokasi');
+    _muatStatus();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: surface,
+      floatingActionButton: LayananPresensi.instance.pengelola
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                await Navigator.pushNamed(context, '/owner');
+                _muatStatus();
+              },
+              icon: const Icon(Icons.dashboard),
+              label: const Text('Pusat Owner'),
+            )
+          : null,
       body: SingleChildScrollView(
         child: Column(
           children: [
-
             Stack(
               clipBehavior: Clip.none,
               children: [
-
                 ClipRRect(
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(36),
@@ -97,10 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 48, 20, 75),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF2563EB),
-                          Color(0xFF1E40AF),
-                        ],
+                        colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -108,7 +170,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-
                         Positioned(
                           top: -70,
                           left: -55,
@@ -125,175 +186,189 @@ class _HomeScreenState extends State<HomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-
                             Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2.2),
-                              image: const DecorationImage(
-                                image: AssetImage('assets/images/avatar_chiikawa.png'),
-                                fit: BoxFit.cover,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.12),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  'Halo, Selamat Pagi!',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white.withOpacity(0.88),
-                                    letterSpacing: 0.2,
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2.2,
+                                    ),
+                                    image: const DecorationImage(
+                                      image: AssetImage(
+                                        'assets/images/avatar_chiikawa.png',
+                                      ),
+                                      fit: BoxFit.cover,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.12),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  'Azai Lunia',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: -0.4,
+                                const SizedBox(width: 14),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Halo, Selamat Pagi!',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white.withOpacity(0.88),
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        LayananPresensi.instance.nama ??
+                                            'Karyawan',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                          letterSpacing: -0.4,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(width: 8),
+
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF4ADE80),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          _formatTime(_now),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      _formatDate(_now),
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFFBAE6FD),
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 12),
+
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.18),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(
+                                          Icons.notifications_none_rounded,
+                                          color: Colors.white,
+                                          size: 21,
+                                        ),
+                                        onPressed: () =>
+                                            _showFloatingNotifications(context),
+                                      ),
+                                    ),
+
+                                    Positioned(
+                                      top: 2,
+                                      right: 2,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEF4444),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFF2563EB),
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
+                            const SizedBox(height: 12),
 
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.14),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.20),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF4ADE80),
-                                      shape: BoxShape.circle,
-                                    ),
+                                  const Icon(
+                                    Icons.location_on_rounded,
+                                    size: 13,
+                                    color: Color(0xFFBAE6FD),
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    _formatTime(_now),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: -0.2,
+                                    (_status?['outlet'] as Map?)?['name']
+                                            as String? ??
+                                        'Titik outlet belum diatur',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFE0F2FE),
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 1),
-                              Text(
-                                _formatDate(_now),
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFFBAE6FD),
-                                  height: 1.1,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.18),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(
-                                    Icons.notifications_none_rounded,
-                                    color: Colors.white,
-                                    size: 21,
-                                  ),
-                                  onPressed: () => _showFloatingNotifications(context),
-                                ),
-                              ),
-
-                              Positioned(
-                                top: 2,
-                                right: 2,
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: const Color(0xFF2563EB), width: 2),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.14),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.20),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.location_on_rounded,
-                              size: 13,
-                              color: Color(0xFFBAE6FD),
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Warkop Cak Kebo • Outlet Senopati',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFE0F2FE),
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                            const SizedBox(height: 24),
                           ],
                         ),
                       ],
@@ -324,7 +399,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(26),
                       child: Stack(
                         children: [
-
                           Positioned(
                             right: -55,
                             bottom: -70,
@@ -349,7 +423,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
@@ -359,7 +432,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFEFF6FF),
                                         borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: const Color(0xFFDBEAFE)),
+                                        border: Border.all(
+                                          color: const Color(0xFFDBEAFE),
+                                        ),
                                       ),
                                       child: const Icon(
                                         Icons.person_rounded,
@@ -370,7 +445,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'STATUS PRESENSI',
@@ -383,7 +459,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            'Belum Absen Masuk',
+                                            _status == null
+                                                ? 'Memuat status presensi'
+                                                : _status!['next_type'] ==
+                                                      'masuk'
+                                                ? 'Belum presensi masuk'
+                                                : _status!['next_type'] ==
+                                                      'pulang'
+                                                ? 'Sudah presensi masuk'
+                                                : 'Presensi hari ini lengkap',
                                             style: GoogleFonts.poppins(
                                               fontSize: 18,
                                               fontWeight: FontWeight.w700,
@@ -393,7 +477,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            'Azai Lunia • Barista Staff',
+                                            LayananPresensi.instance.nama ??
+                                                'Karyawan',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w500,
@@ -408,16 +493,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 16),
 
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
                                   ),
                                   child: Column(
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Row(
                                             children: [
@@ -428,20 +519,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                'Shift Pagi (08:00 - 16:00)',
+                                                _status?['face_enrolled'] ==
+                                                        true
+                                                    ? 'Wajah terdaftar'
+                                                    : 'Wajah belum terdaftar',
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w700,
-                                                  color: const Color(0xFF0F172A),
+                                                  color: const Color(
+                                                    0xFF0F172A,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 3,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFF2563EB),
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Text(
                                               'Wajib',
@@ -456,7 +556,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       const SizedBox(height: 10),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Row(
                                             children: [
@@ -467,17 +568,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
-                                                '15 Menit lagi',
+                                                'Wajah + lokasi GPS',
                                                 style: TextStyle(
                                                   fontSize: 11.5,
                                                   fontWeight: FontWeight.w700,
-                                                  color: const Color(0xFF0F172A),
+                                                  color: const Color(
+                                                    0xFF0F172A,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                           Text(
-                                            'Toleransi: s/d 08:10',
+                                            'Radius: ${(_status?['outlet'] as Map?)?['radius_meters'] ?? "—"} m',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w500,
@@ -492,14 +595,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 12),
 
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFEFF6FF),
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: const Color(0xFFDBEAFE)),
+                                    border: Border.all(
+                                      color: const Color(0xFFDBEAFE),
+                                    ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
@@ -536,71 +645,86 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 16),
 
-                        Container(
-                          width: double.infinity,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF2563EB),
-                                Color(0xFF1D4ED8),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF2563EB).withOpacity(0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isClockingIn ? null : _handleClockIn,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: _isClockingIn
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
+                                Container(
+                                  width: double.infinity,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF2563EB),
+                                        Color(0xFF1D4ED8),
+                                      ],
                                     ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Absen Masuk Sekarang',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: 0.2,
-                                        ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF2563EB)
+                                            .withOpacity(0.35),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 8),
                                       ),
-                                      const SizedBox(width: 8),
-                                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
                                     ],
                                   ),
+                                  child: ElevatedButton(
+                                    onPressed: _isClockingIn
+                                        ? null
+                                        : _handleClockIn,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: _isClockingIn
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                _status?['next_type'] ==
+                                                        'pulang'
+                                                    ? 'Absen Pulang Sekarang'
+                                                    : _status != null &&
+                                                          _status!['next_type'] ==
+                                                              null
+                                                    ? 'Presensi Hari Ini Lengkap'
+                                                    : 'Absen Masuk Sekarang',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.white,
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Icon(
+                                                Icons.arrow_forward_rounded,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        ),
-      ],
-    ),
             const SizedBox(height: 24),
 
             Padding(
@@ -627,9 +751,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 const double gap = 12.0;
                 const double peekWidth = 32.0;
 
-                double cardWidth = (availableWidth - leftPadding - (3 * gap) - peekWidth) / 3;
+                double cardWidth =
+                    (availableWidth - leftPadding - (3 * gap) - peekWidth) / 3;
                 if (availableWidth < 360) {
-                  cardWidth = (availableWidth - leftPadding - (2 * gap) - peekWidth) / 2;
+                  cardWidth =
+                      (availableWidth - leftPadding - (2 * gap) - peekWidth) /
+                      2;
                 }
                 cardWidth = cardWidth.clamp(90.0, 136.0);
 
@@ -818,10 +945,7 @@ class _HomeScreenState extends State<HomeScreen> {
           fontSize: 11,
         ),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timer),
-            label: 'Absensi',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Absensi'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Jadwal',
@@ -830,16 +954,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.point_of_sale),
             label: 'POS',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.badge),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.badge), label: 'Profil'),
         ],
       ),
     );
   }
 
-Widget _buildHugeCard({
+  Widget _buildHugeCard({
     required BuildContext context,
     required double width,
     required String title,
@@ -877,15 +998,14 @@ Widget _buildHugeCard({
                   bottom: -12,
                   child: Opacity(
                     opacity: 0.12,
-                    child: Icon(
-                      icon,
-                      size: 78,
-                      color: iconColor,
-                    ),
+                    child: Icon(icon, size: 78, color: iconColor),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -956,7 +1076,6 @@ Widget _buildHugeCard({
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1025,6 +1144,7 @@ Widget _buildHugeCard({
       ),
     );
   }
+
   Widget _buildNavPillItem({
     required int index,
     required IconData icon,
@@ -1055,7 +1175,9 @@ Widget _buildHugeCard({
             Icon(
               icon,
               size: 22,
-              color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF94A3B8),
+              color: isSelected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFF94A3B8),
             ),
             if (isSelected) ...[
               const SizedBox(width: 8),
@@ -1101,7 +1223,6 @@ Widget _buildHugeCard({
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-
                   Center(
                     child: Container(
                       width: 40,
@@ -1143,7 +1264,10 @@ Widget _buildHugeCard({
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(12),
@@ -1162,7 +1286,11 @@ Widget _buildHugeCard({
                       IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.close_rounded, size: 22, color: Color(0xFF94A3B8)),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 22,
+                          color: Color(0xFF94A3B8),
+                        ),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -1176,7 +1304,8 @@ Widget _buildHugeCard({
                     iconColor: const Color(0xFFD97706),
                     iconBg: const Color(0xFFFEF3C7),
                     title: 'Shift Pagi Segera Dimulai',
-                    subtitle: 'Jadwal Barista kamu mulai pukul 08:00 ${LayananWaktu.zonaWaktu(_now)}. Segera lakukan presensi masuk.',
+                    subtitle:
+                        'Jadwal Barista kamu mulai pukul 08:00 ${LayananWaktu.zonaWaktu(_now)}. Segera lakukan presensi masuk.',
                     time: '15 menit yang lalu',
                     isUnread: true,
                   ),
@@ -1185,8 +1314,8 @@ Widget _buildHugeCard({
                     icon: Icons.radar_rounded,
                     iconColor: const Color(0xFF16A34A),
                     iconBg: const Color(0xFFDCFCE7),
-                    title: 'Radius Outlet Terverifikasi',
-                    subtitle: 'Perangkat kamu terdeteksi 12m dari mesin kasir Warkop Cak Kebo Senopati.',
+                    title: 'Presensi di Area Outlet',
+                    subtitle: 'Aktifkan GPS dan pastikan berada di dalam radius outlet saat presensi.',
                     time: '45 menit yang lalu',
                     isUnread: true,
                   ),
