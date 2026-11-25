@@ -2,6 +2,17 @@
 
 Aplikasi Flutter Warkop CKB, terhubung ke backend Laravel.
 
+## Panduan PDF
+
+[Kode integrasi, face recognition, dan cara mencoba (18 halaman)](docs/Panduan-Integrasi-dan-Presensi-Warkop-CKB.pdf).
+
+PDF berisi peta berkas/endpoint, potongan kode asli, penjelasan sesi dan ngrok, stok resep, YuNet/SFace, konfigurasi server, serta langkah uji di browser. Untuk membuat ulang dari checkout Flutter dan Laravel:
+
+```powershell
+python -m pip install reportlab
+python tools/docs/generate_guide.py --backend ../warkop_ckb
+```
+
 ## Hasil integrasi branch shoru
 
 Entry point sekarang memakai `lib/app/app.dart`, router, sesi tersimpan, dan navigasi per peran dari `shoru`. Nama package tetap `mobile_ckb` agar kode dan pengujian aplikasi yang sudah berjalan tetap kompatibel.
