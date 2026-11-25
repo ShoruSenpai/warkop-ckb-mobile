@@ -29,6 +29,7 @@ class LayananPresensi {
   String? _alamat;
   String? _instanceId;
   Map<String, dynamic>? statusTerakhir;
+  Future<void> Function()? onSessionEnded;
   String? get nama => (statusTerakhir?['user'] as Map?)?['name'] as String?;
   bool get pengelola =>
       (statusTerakhir?['user'] as Map?)?['is_attendance_admin'] == true;
@@ -156,6 +157,7 @@ class LayananPresensi {
     if (response.statusCode == 401) {
       await _storage.delete(key: 'presensi_token');
       statusTerakhir = null;
+      await onSessionEnded?.call();
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errors = data['errors'];

@@ -7,7 +7,8 @@ import '../../../services/layanan_waktu.dart';
 import '../../../services/layanan_presensi.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -929,34 +930,42 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: primary,
-        unselectedItemColor: const Color(0xFF64748B),
-        selectedLabelStyle: GoogleFonts.plusJakartaSans(
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-        unselectedLabelStyle: GoogleFonts.plusJakartaSans(
-          fontWeight: FontWeight.w500,
-          fontSize: 11,
-        ),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Absensi'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Jadwal',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.point_of_sale),
-            label: 'POS',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.badge), label: 'Profil'),
-        ],
-      ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              selectedItemColor: primary,
+              unselectedItemColor: const Color(0xFF64748B),
+              selectedLabelStyle: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+              unselectedLabelStyle: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.timer),
+                  label: 'Absensi',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calendar_today),
+                  label: 'Jadwal',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.point_of_sale),
+                  label: 'POS',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.badge),
+                  label: 'Profil',
+                ),
+              ],
+            ),
     );
   }
 

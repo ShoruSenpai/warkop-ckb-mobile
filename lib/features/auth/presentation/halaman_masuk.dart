@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../services/layanan_presensi.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.onLogin});
+
+  final Future<void> Function(String email, String password)? onLogin;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -123,17 +125,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _pesan = null;
     });
     try {
-      await LayananPresensi.instance.masuk(_email.text, _password.text);
+      if (widget.onLogin != null) {
+        await widget.onLogin!(_email.text.trim(), _password.text);
+      } else {
+        await LayananPresensi.instance.masuk(_email.text, _password.text);
+      }
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
       }
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _pesan = error is PresensiException
-              ? error.pesan
-              : 'Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.',
-        );
+        setState(() => _pesan = error.toString());
       }
     } finally {
       if (mounted) setState(() => _sibuk = false);

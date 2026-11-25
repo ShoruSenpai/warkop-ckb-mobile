@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'app/aplikasi.dart';
+import 'app/app.dart';
 
-export 'app/aplikasi.dart' show MyApp;
+export 'app/app.dart' show MyApp;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
